@@ -2,11 +2,12 @@ package github
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"regexp"
 
-	"github.com/google/go-github/v77/github"
+	"github.com/google/go-github/v83/github"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -65,7 +66,7 @@ func resourceGithubOrganizationNetworkConfiguration() *schema.Resource {
 	}
 }
 
-func resourceGithubOrganizationNetworkConfigurationCreate(d *schema.ResourceData, meta interface{}) error {
+func resourceGithubOrganizationNetworkConfigurationCreate(d *schema.ResourceData, meta any) error {
 	err := checkOrganization(meta)
 	if err != nil {
 		return err
@@ -79,7 +80,7 @@ func resourceGithubOrganizationNetworkConfigurationCreate(d *schema.ResourceData
 	computeService := github.ComputeService(d.Get("compute_service").(string))
 
 	networkSettingsIDs := []string{}
-	for _, id := range d.Get("network_settings_ids").([]interface{}) {
+	for _, id := range d.Get("network_settings_ids").([]any) {
 		networkSettingsIDs = append(networkSettingsIDs, id.(string))
 	}
 
@@ -99,7 +100,7 @@ func resourceGithubOrganizationNetworkConfigurationCreate(d *schema.ResourceData
 	return resourceGithubOrganizationNetworkConfigurationRead(d, meta)
 }
 
-func resourceGithubOrganizationNetworkConfigurationRead(d *schema.ResourceData, meta interface{}) error {
+func resourceGithubOrganizationNetworkConfigurationRead(d *schema.ResourceData, meta any) error {
 	err := checkOrganization(meta)
 	if err != nil {
 		return err
@@ -113,7 +114,8 @@ func resourceGithubOrganizationNetworkConfigurationRead(d *schema.ResourceData, 
 	log.Printf("[DEBUG] Reading network configuration: %s", networkID)
 	configuration, resp, err := client.Organizations.GetNetworkConfiguration(ctx, orgName, networkID)
 	if err != nil {
-		if ghErr, ok := err.(*github.ErrorResponse); ok {
+		ghErr := &github.ErrorResponse{}
+		if errors.As(err, &ghErr) {
 			if ghErr.Response.StatusCode == http.StatusNotFound {
 				log.Printf("[WARN] Removing network configuration %s from state because it no longer exists in GitHub", networkID)
 				d.SetId("")
@@ -127,19 +129,27 @@ func resourceGithubOrganizationNetworkConfigurationRead(d *schema.ResourceData, 
 		return nil
 	}
 
-	d.Set("name", configuration.GetName())
-	if configuration.ComputeService != nil {
-		d.Set("compute_service", string(*configuration.ComputeService))
+	if err := d.Set("name", configuration.GetName()); err != nil {
+		return err
 	}
-	d.Set("network_settings_ids", configuration.NetworkSettingsIDs)
+	if configuration.ComputeService != nil {
+		if err := d.Set("compute_service", string(*configuration.ComputeService)); err != nil {
+			return err
+		}
+	}
+	if err := d.Set("network_settings_ids", configuration.NetworkSettingsIDs); err != nil {
+		return err
+	}
 	if configuration.CreatedOn != nil {
-		d.Set("created_on", configuration.CreatedOn.Format("2006-01-02T15:04:05Z07:00"))
+		if err := d.Set("created_on", configuration.CreatedOn.Format("2006-01-02T15:04:05Z07:00")); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func resourceGithubOrganizationNetworkConfigurationUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceGithubOrganizationNetworkConfigurationUpdate(d *schema.ResourceData, meta any) error {
 	err := checkOrganization(meta)
 	if err != nil {
 		return err
@@ -154,7 +164,7 @@ func resourceGithubOrganizationNetworkConfigurationUpdate(d *schema.ResourceData
 	computeService := github.ComputeService(d.Get("compute_service").(string))
 
 	networkSettingsIDs := []string{}
-	for _, id := range d.Get("network_settings_ids").([]interface{}) {
+	for _, id := range d.Get("network_settings_ids").([]any) {
 		networkSettingsIDs = append(networkSettingsIDs, id.(string))
 	}
 
@@ -173,7 +183,7 @@ func resourceGithubOrganizationNetworkConfigurationUpdate(d *schema.ResourceData
 	return resourceGithubOrganizationNetworkConfigurationRead(d, meta)
 }
 
-func resourceGithubOrganizationNetworkConfigurationDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceGithubOrganizationNetworkConfigurationDelete(d *schema.ResourceData, meta any) error {
 	err := checkOrganization(meta)
 	if err != nil {
 		return err
@@ -187,7 +197,8 @@ func resourceGithubOrganizationNetworkConfigurationDelete(d *schema.ResourceData
 	log.Printf("[DEBUG] Deleting network configuration: %s", networkID)
 	_, err = client.Organizations.DeleteNetworkConfigurations(ctx, orgName, networkID)
 	if err != nil {
-		if ghErr, ok := err.(*github.ErrorResponse); ok {
+		ghErr := &github.ErrorResponse{}
+		if errors.As(err, &ghErr) {
 			if ghErr.Response.StatusCode == http.StatusNotFound {
 				return nil
 			}
