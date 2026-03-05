@@ -2,19 +2,20 @@ package github
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
 func TestAccGithubOrganizationNetworkConfiguration(t *testing.T) {
+	networkSettingsID := testAccConf.testOrgNetworkSettingsID
+	if networkSettingsID == "" {
+		t.Skip("GH_TEST_ORG_NETWORK_SETTINGS_ID not set")
+	}
 	t.Run("creates organization network configuration without error", func(t *testing.T) {
-		networkSettingsID := os.Getenv("GITHUB_TEST_NETWORK_SETTINGS_ID")
-		if networkSettingsID == "" {
-			t.Skip("GITHUB_TEST_NETWORK_SETTINGS_ID not set")
-		}
-
 		config := fmt.Sprintf(`
 		resource "github_organization_network_configuration" "test" {
 			name                  = "test-network-configuration"
@@ -22,122 +23,114 @@ func TestAccGithubOrganizationNetworkConfiguration(t *testing.T) {
 			network_settings_ids  = ["%s"]
 		}`, networkSettingsID)
 
-		check := resource.ComposeTestCheckFunc(
-			resource.TestCheckResourceAttr(
-				"github_organization_network_configuration.test",
-				"name", "test-network-configuration",
-			),
-			resource.TestCheckResourceAttr(
-				"github_organization_network_configuration.test",
-				"compute_service", "actions",
-			),
-			resource.TestCheckResourceAttr(
-				"github_organization_network_configuration.test",
-				"network_settings_ids.0", networkSettingsID,
-			),
-			resource.TestCheckResourceAttrSet(
-				"github_organization_network_configuration.test",
-				"id",
-			),
-			resource.TestCheckResourceAttrSet(
-				"github_organization_network_configuration.test",
-				"created_on",
-			),
-		)
-
 		resource.Test(t, resource.TestCase{
-			PreCheck:          func() { skipUnlessHasOrgs(t) },
+			PreCheck:          func() { skipUnlessHasPaidOrgs(t) },
 			ProviderFactories: providerFactories,
 			Steps: []resource.TestStep{
 				{
 					Config: config,
-					Check:  check,
+					ConfigStateChecks: []statecheck.StateCheck{
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("name"),
+							knownvalue.NotNull(),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("compute_service"),
+							knownvalue.StringExact("actions"),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("network_settings_ids"),
+							knownvalue.ListExact([]knownvalue.Check{
+								knownvalue.StringExact(networkSettingsID),
+							}),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("id"),
+							knownvalue.NotNull(),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("created_on"),
+							knownvalue.NotNull(),
+						),
+					},
 				},
 			},
 		})
 	})
 
 	t.Run("updates organization network configuration without error", func(t *testing.T) {
-		networkSettingsID := os.Getenv("GITHUB_TEST_NETWORK_SETTINGS_ID")
-		if networkSettingsID == "" {
-			t.Skip("GITHUB_TEST_NETWORK_SETTINGS_ID not set")
-		}
-
 		name := "test-network-config-one"
 		computeService := "actions"
 
 		updatedName := "test-network-config-two"
 		updatedComputeService := "actions"
 
-		configs := map[string]string{
-			"before": fmt.Sprintf(`
-			resource "github_organization_network_configuration" "test" {
-				name                  = "%s"
-				compute_service       = "%s"
-				network_settings_ids  = ["%s"]
-			}`, name, computeService, networkSettingsID),
-
-			"after": fmt.Sprintf(`
-			resource "github_organization_network_configuration" "test" {
-				name                  = "%s"
-				compute_service       = "%s"
-				network_settings_ids  = ["%s"]
-			}`, updatedName, updatedComputeService, networkSettingsID),
-		}
-
-		checks := map[string]resource.TestCheckFunc{
-			"before": resource.ComposeTestCheckFunc(
-				resource.TestCheckResourceAttr(
-					"github_organization_network_configuration.test",
-					"name", name,
-				),
-				resource.TestCheckResourceAttr(
-					"github_organization_network_configuration.test",
-					"compute_service", computeService,
-				),
-				resource.TestCheckResourceAttr(
-					"github_organization_network_configuration.test",
-					"network_settings_ids.0", networkSettingsID,
-				),
-			),
-			"after": resource.ComposeTestCheckFunc(
-				resource.TestCheckResourceAttr(
-					"github_organization_network_configuration.test",
-					"name", updatedName,
-				),
-				resource.TestCheckResourceAttr(
-					"github_organization_network_configuration.test",
-					"compute_service", updatedComputeService,
-				),
-				resource.TestCheckResourceAttr(
-					"github_organization_network_configuration.test",
-					"network_settings_ids.0", networkSettingsID,
-				),
-			),
-		}
+		config := `
+resource "github_organization_network_configuration" "test" {
+	name                  = "%s"
+	compute_service       = "%s"
+	network_settings_ids  = ["%s"]
+}
+`
 
 		resource.Test(t, resource.TestCase{
-			PreCheck:          func() { skipUnlessHasOrgs(t) },
+			PreCheck:          func() { skipUnlessHasPaidOrgs(t) },
 			ProviderFactories: providerFactories,
 			Steps: []resource.TestStep{
 				{
-					Config: configs["before"],
-					Check:  checks["before"],
+					Config: fmt.Sprintf(config, name, computeService, networkSettingsID),
+					ConfigStateChecks: []statecheck.StateCheck{
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("name"),
+							knownvalue.StringExact(name),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("compute_service"),
+							knownvalue.StringExact(computeService),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("network_settings_ids"),
+							knownvalue.ListExact([]knownvalue.Check{
+								knownvalue.StringExact(networkSettingsID),
+							}),
+						),
+					},
 				},
 				{
-					Config: configs["after"],
-					Check:  checks["after"],
+					Config: fmt.Sprintf(config, updatedName, updatedComputeService, networkSettingsID),
+					ConfigStateChecks: []statecheck.StateCheck{
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("name"),
+							knownvalue.StringExact(updatedName),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("compute_service"),
+							knownvalue.StringExact(updatedComputeService),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("network_settings_ids"),
+							knownvalue.ListExact([]knownvalue.Check{
+								knownvalue.StringExact(networkSettingsID),
+							}),
+						),
+					},
 				},
 			},
 		})
 	})
 
 	t.Run("imports organization network configuration without error", func(t *testing.T) {
-		networkSettingsID := os.Getenv("GITHUB_TEST_NETWORK_SETTINGS_ID")
-		if networkSettingsID == "" {
-			t.Skip("GITHUB_TEST_NETWORK_SETTINGS_ID not set")
-		}
-
 		name := "test-network-config-import"
 		computeService := "actions"
 
@@ -148,24 +141,24 @@ func TestAccGithubOrganizationNetworkConfiguration(t *testing.T) {
 			network_settings_ids  = ["%s"]
 		}`, name, computeService, networkSettingsID)
 
-		check := resource.ComposeTestCheckFunc(
-			resource.TestCheckResourceAttr(
-				"github_organization_network_configuration.test",
-				"name", name,
-			),
-			resource.TestCheckResourceAttr(
-				"github_organization_network_configuration.test",
-				"compute_service", computeService,
-			),
-		)
-
 		resource.Test(t, resource.TestCase{
-			PreCheck:          func() { skipUnlessHasOrgs(t) },
+			PreCheck:          func() { skipUnlessHasPaidOrgs(t) },
 			ProviderFactories: providerFactories,
 			Steps: []resource.TestStep{
 				{
 					Config: config,
-					Check:  check,
+					ConfigStateChecks: []statecheck.StateCheck{
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("name"),
+							knownvalue.StringExact(name),
+						),
+						statecheck.ExpectKnownValue(
+							"github_organization_network_configuration.test",
+							tfjsonpath.New("compute_service"),
+							knownvalue.StringExact(computeService),
+						),
+					},
 				},
 				{
 					ResourceName:      "github_organization_network_configuration.test",

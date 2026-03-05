@@ -66,6 +66,7 @@ type testAccConfig struct {
 	testOrgRepository         string
 	testOrgTemplateRepository string
 	testOrgAppInstallationId  int
+	testOrgNetworkSettingsID  string
 
 	// External test configuration
 	testExternalUser      string
@@ -130,6 +131,7 @@ func TestMain(m *testing.M) {
 		testOrgSecretName:                 os.Getenv("GH_TEST_ORG_SECRET_NAME"),
 		testOrgRepository:                 os.Getenv("GH_TEST_ORG_REPOSITORY"),
 		testOrgTemplateRepository:         os.Getenv("GH_TEST_ORG_TEMPLATE_REPOSITORY"),
+		testOrgNetworkSettingsID:          os.Getenv("GH_TEST_ORG_NETWORK_SETTINGS_ID"),
 		testExternalUser:                  os.Getenv("GH_TEST_EXTERNAL_USER"),
 		testExternalUserToken:             os.Getenv("GH_TEST_EXTERNAL_USER_TOKEN"),
 		testExternalUser2:                 os.Getenv("GH_TEST_EXTERNAL_USER2"),
