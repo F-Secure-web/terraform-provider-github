@@ -30,6 +30,13 @@ func resourceGithubRepositoryAutolinkReference() *schema.Resource {
 		CustomizeDiff: diffRepository,
 
 		SchemaVersion: 1,
+		StateUpgraders: []schema.StateUpgrader{
+			{
+				Type:    resourceGithubRepositoryAutolinkReferenceV0().CoreConfigSchema().ImpliedType(),
+				Upgrade: resourceGithubRepositoryAutolinkReferenceStateUpgradeV0,
+				Version: 0,
+			},
+		},
 		Schema: map[string]*schema.Schema{
 			"repository": {
 				Type:        schema.TypeString,
@@ -79,7 +86,7 @@ func resourceGithubRepositoryAutolinkReference() *schema.Resource {
 	}
 }
 
-func resourceGithubRepositoryAutolinkReferenceImport(ctx context.Context, d *schema.ResourceData, meta any) ([]*schema.ResourceData, error) {
+func resourceGithubRepositoryAutolinkReferenceImport(ctx context.Context, d *schema.ResourceData, m any) ([]*schema.ResourceData, error) {
 	parts := strings.Split(d.Id(), "/")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid ID specified: supplied ID must be written as <repository>/<autolink_reference_id>")
@@ -88,8 +95,9 @@ func resourceGithubRepositoryAutolinkReferenceImport(ctx context.Context, d *sch
 	repository := parts[0]
 	id := parts[1]
 
-	client := meta.(*Owner).v3client
-	owner := meta.(*Owner).name
+	meta, _ := m.(*Owner)
+	client := meta.v3client
+	owner := meta.name
 
 	// If the second part of the provided ID isn't an integer, assume that the
 	// caller provided the key prefix for the autolink reference, and look up
@@ -123,7 +131,7 @@ func resourceGithubRepositoryAutolinkReferenceImport(ctx context.Context, d *sch
 }
 
 func resourceGithubRepositoryAutolinkReferenceCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
-	meta := m.(*Owner)
+	meta, _ := m.(*Owner)
 	client := meta.v3client
 	owner := meta.name
 
@@ -159,7 +167,7 @@ func resourceGithubRepositoryAutolinkReferenceCreate(ctx context.Context, d *sch
 func resourceGithubRepositoryAutolinkReferenceRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	ctx = tflog.SetField(ctx, "id", d.Id())
 
-	meta := m.(*Owner)
+	meta, _ := m.(*Owner)
 	client := meta.v3client
 	owner := meta.name
 
@@ -192,6 +200,15 @@ func resourceGithubRepositoryAutolinkReferenceRead(ctx context.Context, d *schem
 	if err = d.Set("repository", repoName); err != nil {
 		return diag.FromErr(err)
 	}
+
+	repo, _, err := client.Repositories.Get(ctx, owner, repoName)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	if err = d.Set("repository_id", int(repo.GetID())); err != nil {
+		return diag.FromErr(err)
+	}
+
 	if err = d.Set("key_prefix", autolinkRef.KeyPrefix); err != nil {
 		return diag.FromErr(err)
 	}
@@ -217,7 +234,7 @@ func resourceGithubRepositoryAutolinkReferenceUpdate(ctx context.Context, d *sch
 func resourceGithubRepositoryAutolinkReferenceDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	ctx = tflog.SetField(ctx, "id", d.Id())
 
-	meta := m.(*Owner)
+	meta, _ := m.(*Owner)
 	client := meta.v3client
 	owner := meta.name
 
