@@ -463,7 +463,6 @@ func resourceGithubRepository() *schema.Resource {
 					return true
 				},
 				DiffSuppressOnRefresh: true,
-				Description:           "An etag representing the repository object.",
 			},
 			"primary_language": {
 				Type:        schema.TypeString,
