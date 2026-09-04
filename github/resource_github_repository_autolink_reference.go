@@ -37,7 +37,7 @@ func resourceGithubRepositoryAutolinkReference() *schema.Resource {
 			},
 		},
 
-		Description: "Creates and manages an autolink reference for a single repository.",
+		Description: "Resource to manage an autolink reference for a single repository.",
 		Schema: map[string]*schema.Schema{
 			"repository": {
 				Type:        schema.TypeString,

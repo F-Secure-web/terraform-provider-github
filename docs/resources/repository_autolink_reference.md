@@ -2,12 +2,12 @@
 page_title: "github_repository_autolink_reference (Resource) - GitHub"
 subcategory: ""
 description: |-
-  Creates and manages an autolink reference for a single repository.
+  Resource to manage an autolink reference for a single repository.
 ---
 
 # github_repository_autolink_reference (Resource)
 
-Creates and manages an autolink reference for a single repository.
+Resource to manage an autolink reference for a single repository.
 
 ## Example Usage
 
@@ -51,14 +51,30 @@ resource "github_repository_autolink_reference" "autolink" {
 
 Import is supported using the following syntax:
 
+In Terraform v1.5.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `id` attribute, for example:
+
+```terraform
+# Import by autolink reference ID
+import {
+  to = github_repository_autolink_reference.example
+  id = "example:123"
+}
+
+# Import by key prefix
+import {
+  to = github_repository_autolink_reference.example
+  id = "example:OOF-"
+}
+```
+
 The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 # Import by ID
-terraform import github_repository_autolink_reference.auto my-repo:123
+terraform import github_repository_autolink_reference.auto example:123
 # See the GitHub documentation for how to list all autolinks of a repository to learn the autolink ids to use with the import command.
 # https://docs.github.com/en/rest/repos/autolinks#list-all-autolinks-of-a-repository
 
 # Import by key prefix
-terraform import github_repository_autolink_reference.auto oof:OOF-
+terraform import github_repository_autolink_reference.auto example:OOF-
 ```
