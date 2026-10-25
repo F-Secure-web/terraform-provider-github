@@ -12,7 +12,6 @@ import (
 	"github.com/google/go-github/v92/github"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -32,9 +31,9 @@ func resourceGithubActionsHostedRunner() *schema.Resource {
 			Delete: schema.DefaultTimeout(10 * time.Minute),
 		},
 
-		Description: "Resource to create and manage GitHub-hosted runners within an organization.",
+		CustomizeDiff: resourceGithubActionsHostedRunnerValidation,
 
-		CustomizeDiff: customdiff.All(resourceGithubActionsHostedRunnerValidation),
+		Description: "Resource to create and manage GitHub-hosted runners within an organization.",
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -291,7 +290,7 @@ func resourceGithubActionsHostedRunnerRead(ctx context.Context, d *schema.Resour
 
 	runner, _, err := client.Actions.GetHostedRunner(ctx, orgName, runnerID)
 	if err != nil {
-		if err, ok := errors.AsType[*github.ErrorResponse](err); ok && err.Response.StatusCode == http.StatusNotFound {
+		if ghErr, ok := errors.AsType[*github.ErrorResponse](err); ok && ghErr.Response.StatusCode == http.StatusNotFound {
 			tflog.Warn(ctx, "Removing hosted runner from state because it no longer exists in GitHub", map[string]any{"runner_id": runnerIDStr})
 			d.SetId("")
 			return nil
@@ -389,11 +388,12 @@ func resourceGithubActionsHostedRunnerUpdate(ctx context.Context, d *schema.Reso
 
 	runner, _, err := client.Actions.UpdateHostedRunner(ctx, orgName, runnerID, req)
 	if err != nil {
-		if _, ok := errors.AsType[*github.AcceptedError](err); !ok {
-			return diag.FromErr(err)
+		if _, ok := errors.AsType[*github.AcceptedError](err); ok {
+			// 202 Accepted carries no runner body; keep current state until the next refresh
+			return nil
 		}
-		// 202 Accepted carries no runner body; keep current state until the next refresh
-		return nil
+
+		return diag.FromErr(err)
 	}
 
 	if err := d.Set("status", runner.GetStatus()); err != nil {
@@ -440,14 +440,17 @@ func resourceGithubActionsHostedRunnerDelete(ctx context.Context, d *schema.Reso
 		return diag.FromErr(err)
 	}
 
+	// Deletion is asynchronous: a 202 only means GitHub accepted the request. Wait for the runner to be gone so a
+	// failed deletion surfaces as an error here, rather than leaving a runner that Terraform has already dropped from state.
 	_, resp, err := client.Actions.DeleteHostedRunner(ctx, orgName, runnerID)
 	if err != nil {
-		if resp != nil && resp.StatusCode == http.StatusNotFound {
+		if ghErr, ok := errors.AsType[*github.ErrorResponse](err); ok && ghErr.Response.StatusCode == http.StatusNotFound {
 			return nil
 		}
 		if _, ok := errors.AsType[*github.AcceptedError](err); ok {
 			return diag.FromErr(waitForRunnerDeletion(ctx, client, orgName, runnerID, d.Timeout(schema.TimeoutDelete)))
 		}
+
 		return diag.FromErr(err)
 	}
 
@@ -496,13 +499,12 @@ func waitForRunnerDeletion(ctx context.Context, client *github.Client, orgName s
 		Pending: []string{"deleting", "active", "ready", "provisioning"},
 		Target:  []string{"deleted"},
 		Refresh: func() (any, string, error) {
-			_, resp, err := client.Actions.GetHostedRunner(ctx, orgName, runnerID)
-
-			if resp != nil && resp.StatusCode == http.StatusNotFound {
-				return "deleted", "deleted", nil
-			}
-
+			_, _, err := client.Actions.GetHostedRunner(ctx, orgName, runnerID)
 			if err != nil {
+				if ghErr, ok := errors.AsType[*github.ErrorResponse](err); ok && ghErr.Response.StatusCode == http.StatusNotFound {
+					return "deleted", "deleted", nil
+				}
+
 				return nil, "deleting", err
 			}
 
