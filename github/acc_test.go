@@ -368,8 +368,8 @@ func sweepOrganizationRunnerGroups(_ string) error {
 				return fmt.Errorf("failed to sweep runner group runners for %s: %w", rg.GetName(), err)
 			}
 
-			if resp, err := client.Actions.DeleteOrganizationRunnerGroup(ctx, owner, rg.GetID()); err != nil {
-				if resp != nil && resp.StatusCode == http.StatusNotFound {
+			if _, err := client.Actions.DeleteOrganizationRunnerGroup(ctx, owner, rg.GetID()); err != nil {
+				if ghErr, ok := errors.AsType[*github.ErrorResponse](err); ok && ghErr.Response.StatusCode == http.StatusNotFound {
 					continue
 				}
 				return err
@@ -396,7 +396,7 @@ func sweepRunnerGroupRunners(ctx context.Context, rg *github.RunnerGroup) error 
 	for _, r := range runners {
 		_, resp, err := client.Actions.DeleteHostedRunner(ctx, owner, r.GetID())
 		if err != nil {
-			if resp != nil && resp.StatusCode == http.StatusNotFound {
+			if ghErr, ok := errors.AsType[*github.ErrorResponse](err); ok && ghErr.Response.StatusCode == http.StatusNotFound {
 				continue
 			}
 			if _, ok := errors.AsType[*github.AcceptedError](err); ok {

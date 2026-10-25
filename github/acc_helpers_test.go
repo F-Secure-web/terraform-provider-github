@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -173,7 +174,6 @@ func mustCreateTestBranch(t *testing.T, repo *github.Repository) string {
 
 func mustCreateTestOrganizationActionsRunnerGroup(t *testing.T) *github.RunnerGroup {
 	t.Helper()
-	skipUnlessHasPaidOrgs(t)
 
 	randomID := acctest.RandString(testRandomIDLength)
 	name := fmt.Sprintf("%s%s", testResourcePrefix, randomID)
@@ -194,7 +194,7 @@ func mustCreateTestOrganizationActionsRunnerGroup(t *testing.T) *github.RunnerGr
 			t.Logf("failed to delete runner group runners for %s: %v", runnerGroup.GetName(), err)
 		}
 		if _, err := testAccConf.meta.v3client.Actions.DeleteOrganizationRunnerGroup(ctx, testAccConf.meta.name, runnerGroup.GetID()); err != nil {
-			if err, ok := errors.AsType[*github.ErrorResponse](err); ok && err.Response.StatusCode == 404 {
+			if ghErr, ok := errors.AsType[*github.ErrorResponse](err); ok && ghErr.Response.StatusCode == http.StatusNotFound {
 				return
 			}
 			t.Logf("failed to delete test organization runner group %s: %v", name, err)

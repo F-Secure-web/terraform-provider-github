@@ -20,6 +20,7 @@ func TestAccGithubActionsHostedRunner(t *testing.T) {
 	t.Run("creates_hosted_runners_without_error", func(t *testing.T) {
 		t.Parallel()
 
+		skipUnlessHasPaidOrgs(t)
 		runnerGroup := mustCreateTestOrganizationActionsRunnerGroup(t)
 		randomID := acctest.RandString(5)
 		hostedRunnerName := fmt.Sprintf("%srunner-%s", testResourcePrefix, randomID)
@@ -62,6 +63,7 @@ func TestAccGithubActionsHostedRunner(t *testing.T) {
 	t.Run("creates_hosted_runner_with_optional_parameters", func(t *testing.T) {
 		t.Parallel()
 
+		skipUnlessHasPaidOrgs(t)
 		runnerGroup := mustCreateTestOrganizationActionsRunnerGroup(t)
 		randomID := acctest.RandString(5)
 		hostedRunnerName := fmt.Sprintf("%srunner-optional-%s", testResourcePrefix, randomID)
@@ -100,6 +102,7 @@ func TestAccGithubActionsHostedRunner(t *testing.T) {
 	t.Run("updates_hosted_runner_configuration", func(t *testing.T) {
 		t.Parallel()
 
+		skipUnlessHasPaidOrgs(t)
 		runnerGroup := mustCreateTestOrganizationActionsRunnerGroup(t)
 		randomID := acctest.RandString(5)
 		hostedRunnerName := fmt.Sprintf("%srunner-update-%s", testResourcePrefix, randomID)
@@ -149,6 +152,7 @@ func TestAccGithubActionsHostedRunner(t *testing.T) {
 	t.Run("updates_size_field", func(t *testing.T) {
 		t.Parallel()
 
+		skipUnlessHasPaidOrgs(t)
 		runnerGroup := mustCreateTestOrganizationActionsRunnerGroup(t)
 		randomID := acctest.RandString(5)
 		hostedRunnerName := fmt.Sprintf("%srunner-size-%s", testResourcePrefix, randomID)
@@ -198,6 +202,7 @@ func TestAccGithubActionsHostedRunner(t *testing.T) {
 	t.Run("imports_hosted_runner", func(t *testing.T) {
 		t.Parallel()
 
+		skipUnlessHasPaidOrgs(t)
 		runnerGroup := mustCreateTestOrganizationActionsRunnerGroup(t)
 		randomID := acctest.RandString(5)
 		hostedRunnerName := fmt.Sprintf("%srunner-import-%s", testResourcePrefix, randomID)
@@ -236,6 +241,7 @@ func TestAccGithubActionsHostedRunner(t *testing.T) {
 	t.Run("deletes_hosted_runner", func(t *testing.T) {
 		t.Parallel()
 
+		skipUnlessHasPaidOrgs(t)
 		runnerGroup := mustCreateTestOrganizationActionsRunnerGroup(t)
 		randomID := acctest.RandString(5)
 		hostedRunnerName := fmt.Sprintf("%srunner-delete-%s", testResourcePrefix, randomID)
