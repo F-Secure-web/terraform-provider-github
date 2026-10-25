@@ -36,8 +36,6 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 ## Example Usage
 
-### Advanced Usage
-
 ```terraform
 resource "github_actions_runner_group" "example" {
   name       = "example-runner-group"
